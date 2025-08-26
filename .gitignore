@@ -1,0 +1,20 @@
+# Build outputs
+bin/
+obj/
+*.o
+*.a
+*.so
+*.dylib
+*.out
+
+# Data directories
+data/
+*.dcm
+*.raw
+
+# Temporary files
+*.tmp
+*.log
+.DS_Store
+__pycache__/
+*.pyc

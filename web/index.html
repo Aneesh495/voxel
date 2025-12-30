@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>voxel PACS - Clinical Radiology & Volumetric MPR Workstation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="top-nav">
+        <div class="brand">
+            <span class="logo-badge">VOXEL</span>
+            <span class="brand-title">PACS Medical Diagnostic Workstation</span>
+            <span class="brand-version">v1.0.0</span>
+        </div>
+        <div class="toolbar">
+            <div class="tool-group">
+                <label for="preset-select">Preset:</label>
+                <select id="preset-select">
+                    <option value="soft" selected>Soft Tissue (C:40, W:350)</option>
+                    <option value="bone">Bone (C:400, W:2000)</option>
+                    <option value="lung">Lung (C:-600, W:1500)</option>
+                    <option value="brain">Brain (C:40, W:80)</option>
+                </select>
+            </div>
+            <div class="tool-group">
+                <span class="wl-indicator">C: <span id="val-wc">40</span> | W: <span id="val-ww">350</span></span>
+            </div>
+            <div class="tool-group tool-buttons">
+                <button id="btn-tool-wl" class="active" title="Window/Level Contrast (Drag mouse)">W/L</button>
+                <button id="btn-tool-caliper" title="Measurement Caliper (Click two points)">Caliper</button>
+                <button id="btn-tool-roi" title="Region of Interest Statistics">ROI</button>
+                <button id="btn-tool-reset" title="Reset view and measurements">Reset</button>
+            </div>
+            <div class="tool-group">
+                <button id="btn-tags" class="btn-secondary">Metadata Inspector</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="workstation-grid">
+        <!-- Viewport 1: Axial MPR -->
+        <div class="viewport-card" id="vp-axial">
+            <div class="vp-header">
+                <span class="vp-title">AXIAL (Transverse XY)</span>
+                <span class="vp-slice-info">Slice: <span id="slice-axial-num">32</span> / 64</span>
+            </div>
+            <div class="vp-canvas-wrapper">
+                <canvas id="canvas-axial" width="256" height="256"></canvas>
+                <div class="vp-hud top-left">R</div>
+                <div class="vp-hud top-right">L</div>
+                <div class="vp-hud bottom-left">A</div>
+                <div class="vp-hud bottom-right">P</div>
+            </div>
+            <div class="vp-footer">
+                <input type="range" id="slider-axial" min="0" max="63" value="32">
+            </div>
+        </div>
+
+        <!-- Viewport 2: Coronal MPR -->
+        <div class="viewport-card" id="vp-coronal">
+            <div class="vp-header">
+                <span class="vp-title">CORONAL (Frontal XZ)</span>
+                <span class="vp-slice-info">Slice: <span id="slice-coronal-num">128</span> / 256</span>
+            </div>
+            <div class="vp-canvas-wrapper">
+                <canvas id="canvas-coronal" width="256" height="256"></canvas>
+                <div class="vp-hud top-left">R</div>
+                <div class="vp-hud top-right">L</div>
+                <div class="vp-hud bottom-left">I</div>
+                <div class="vp-hud bottom-right">S</div>
+            </div>
+            <div class="vp-footer">
+                <input type="range" id="slider-coronal" min="0" max="255" value="128">
+            </div>
+        </div>
+
+        <!-- Viewport 3: Sagittal MPR -->
+        <div class="viewport-card" id="vp-sagittal">
+            <div class="vp-header">
+                <span class="vp-title">SAGITTAL (Lateral YZ)</span>
+                <span class="vp-slice-info">Slice: <span id="slice-sagittal-num">128</span> / 256</span>
+            </div>
+            <div class="vp-canvas-wrapper">
+                <canvas id="canvas-sagittal" width="256" height="256"></canvas>
+                <div class="vp-hud top-left">A</div>
+                <div class="vp-hud top-right">P</div>
+                <div class="vp-hud bottom-left">I</div>
+                <div class="vp-hud bottom-right">S</div>
+            </div>
+            <div class="vp-footer">
+                <input type="range" id="slider-sagittal" min="0" max="255" value="128">
+            </div>
+        </div>
+
+        <!-- Viewport 4: 3D Projection -->
+        <div class="viewport-card" id="vp-mip">
+            <div class="vp-header">
+                <span class="vp-title">3D PROJECTION (MIP Angiography)</span>
+                <span class="vp-slice-info">Full Depth Ray-Cast</span>
+            </div>
+            <div class="vp-canvas-wrapper">
+                <canvas id="canvas-mip" width="256" height="256"></canvas>
+                <div class="vp-hud bottom-left" id="measurement-hud">Ready</div>
+            </div>
+            <div class="vp-footer">
+                <span class="mip-label">Maximum Intensity Ray-Casting</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Metadata Inspector Modal -->
+    <div id="tags-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>DICOM Clinical Metadata Inspector</h3>
+                <button id="btn-modal-close" class="btn-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <table class="tags-table">
+                    <thead>
+                        <tr>
+                            <th>Tag</th>
+                            <th>VR</th>
+                            <th>Keyword</th>
+                            <th>Clinical Value</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tags-table-body">
+                        <tr><td>(0010,0010)</td><td>PN</td><td>PatientName</td><td>PHANTOM^ANATOMICAL^HEAD</td></tr>
+                        <tr><td>(0010,0020)</td><td>LO</td><td>PatientID</td><td>VOXEL-PHANTOM-001</td></tr>
+                        <tr><td>(0008,0060)</td><td>CS</td><td>Modality</td><td>CT</td></tr>
+                        <tr><td>(0008,1030)</td><td>LO</td><td>StudyDescription</td><td>3D Volumetric Head CT Reconstruction</td></tr>
+                        <tr><td>(0018,0050)</td><td>DS</td><td>SliceThickness</td><td>2.500000 mm</td></tr>
+                        <tr><td>(0028,0030)</td><td>DS</td><td>PixelSpacing</td><td>0.800000 \ 0.800000 mm</td></tr>
+                        <tr><td>(0028,0100)</td><td>US</td><td>BitsAllocated</td><td>16</td></tr>
+                        <tr><td>(0028,1050)</td><td>DS</td><td>WindowCenter</td><td>40.000000 HU</td></tr>
+                        <tr><td>(0028,1051)</td><td>DS</td><td>WindowWidth</td><td>350.000000 HU</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

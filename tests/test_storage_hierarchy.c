@@ -62,7 +62,7 @@ static void test_relational_hierarchy(void) {
 static void test_cas_and_wal(void) {
     printf("[TEST] Content-Addressable Storage & WAL Checksum Replay... ");
     const char *test_dir = "data/test_cas";
-    const uint8_t test_data[16] = "DICOM_TEST_BYTES";
+    const uint8_t test_data[] = "DICOM_TEST_BYTES";
 
     char path1[256];
     assert(storage_cas_store(test_dir, test_data, sizeof(test_data), path1, sizeof(path1)));

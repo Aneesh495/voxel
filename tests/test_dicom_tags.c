@@ -131,7 +131,7 @@ static void test_part10_roundtrip(void) {
 
     uint16_t rows = 0, cols = 0;
     assert(dicom_dataset_get_u16(dst, TAG_ROWS, &rows));
-    assert(assert(dicom_dataset_get_u16(dst, TAG_COLUMNS, &cols)), 1);
+    assert(dicom_dataset_get_u16(dst, TAG_COLUMNS, &cols));
     assert(rows == 256 && cols == 256);
 
     free(raw_bytes);

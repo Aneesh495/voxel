@@ -178,10 +178,14 @@ const char *dicom_dataset_get_string(const dicom_dataset_t *ds, dicom_tag_t tag)
     dicom_element_t *el = dicom_dataset_get(ds, tag);
     if (!el || !el->data || el->length == 0) return NULL;
 
-    // Allocate thread-safe or static buffer for string view with null terminator
-    // Strip trailing padding spaces or nulls
-    static char s_tmp[512];
-    size_t copy_len = (el->length < sizeof(s_tmp) - 1) ? el->length : (sizeof(s_tmp) - 1);
+    // Thread-local rotating ring buffer to allow multiple get_string calls in one expression
+    static _Thread_local char s_ring[16][512];
+    static _Thread_local size_t s_idx = 0;
+
+    char *s_tmp = s_ring[s_idx % 16];
+    s_idx++;
+
+    size_t copy_len = (el->length < 511) ? el->length : 511;
     memcpy(s_tmp, el->data, copy_len);
     while (copy_len > 0 && (s_tmp[copy_len - 1] == ' ' || s_tmp[copy_len - 1] == '\0')) {
         copy_len--;
@@ -208,6 +212,24 @@ bool dicom_dataset_get_u32(const dicom_dataset_t *ds, dicom_tag_t tag, uint32_t 
 }
 
 bool dicom_dataset_get_i32(const dicom_dataset_t *ds, dicom_tag_t tag, int32_t *out_val) {
+    dicom_element_t *el = dicom_dataset_get(ds, tag);
+    if (!el || !el->data || el->length == 0) return false;
+    if (el->vr == VR_SL && el->length >= 4) {
+        *out_val = (int32_t)((uint32_t)el->data[0] | ((uint32_t)el->data[1] << 8) | ((uint32_t)el->data[2] << 16) | ((uint32_t)el->data[3] << 24));
+        return true;
+    }
+    if (el->vr == VR_UL && el->length >= 4) {
+        *out_val = (int32_t)((uint32_t)el->data[0] | ((uint32_t)el->data[1] << 8) | ((uint32_t)el->data[2] << 16) | ((uint32_t)el->data[3] << 24));
+        return true;
+    }
+    if (el->vr == VR_US && el->length >= 2) {
+        *out_val = (int32_t)((uint16_t)el->data[0] | ((uint16_t)el->data[1] << 8));
+        return true;
+    }
+    if (el->vr == VR_SS && el->length >= 2) {
+        *out_val = (int32_t)(int16_t)((uint16_t)el->data[0] | ((uint16_t)el->data[1] << 8));
+        return true;
+    }
     const char *str = dicom_dataset_get_string(ds, tag);
     if (!str) return false;
     *out_val = (int32_t)atoi(str);
@@ -215,6 +237,18 @@ bool dicom_dataset_get_i32(const dicom_dataset_t *ds, dicom_tag_t tag, int32_t *
 }
 
 bool dicom_dataset_get_f64(const dicom_dataset_t *ds, dicom_tag_t tag, double *out_val) {
+    dicom_element_t *el = dicom_dataset_get(ds, tag);
+    if (!el || !el->data || el->length == 0) return false;
+    if (el->vr == VR_FD && el->length >= 8) {
+        memcpy(out_val, el->data, sizeof(double));
+        return true;
+    }
+    if (el->vr == VR_FL && el->length >= 4) {
+        float f;
+        memcpy(&f, el->data, sizeof(float));
+        *out_val = (double)f;
+        return true;
+    }
     const char *str = dicom_dataset_get_string(ds, tag);
     if (!str) return false;
     *out_val = atof(str);

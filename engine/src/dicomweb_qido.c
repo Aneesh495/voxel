@@ -4,6 +4,7 @@
 #include <string.h>
 
 char *dicomweb_qido_query_studies(const storage_hierarchy_t *h, const char *query_params) {
+    (void)query_params;
     if (!h) return strdup("[]");
 
     size_t cap = 2048;
@@ -56,6 +57,7 @@ char *dicomweb_qido_query_studies(const storage_hierarchy_t *h, const char *quer
 }
 
 char *dicomweb_qido_query_series(const storage_hierarchy_t *h, const char *study_uid, const char *query_params) {
+    (void)query_params;
     storage_study_t *st = storage_find_study(h, study_uid);
     if (!st) return strdup("[]");
 
@@ -103,6 +105,7 @@ char *dicomweb_qido_query_series(const storage_hierarchy_t *h, const char *study
 }
 
 char *dicomweb_qido_query_instances(const storage_hierarchy_t *h, const char *study_uid, const char *series_uid, const char *query_params) {
+    (void)query_params;
     storage_series_t *s = storage_find_series(h, study_uid, series_uid);
     if (!s) return strdup("[]");
 

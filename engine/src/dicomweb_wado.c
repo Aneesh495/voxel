@@ -63,6 +63,8 @@ uint8_t *dicomweb_wado_render_instance_png(
     window_level_t wl,
     size_t *out_png_len
 ) {
+    (void)study_uid;
+    (void)series_uid;
     storage_instance_t *inst = storage_find_instance(h, instance_uid);
     if (!inst || inst->file_path[0] == '\0') return NULL;
 

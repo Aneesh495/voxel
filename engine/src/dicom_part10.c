@@ -19,6 +19,7 @@ dicom_dataset_t *dicom_part10_read_memory(const uint8_t *buffer, size_t length) 
 
     bool is_explicit = true;
     bool is_big_endian = false;
+    (void)is_big_endian;
 
     while (cursor + 6 <= length) {
         uint16_t group = (uint16_t)buffer[cursor] | ((uint16_t)buffer[cursor + 1] << 8);
@@ -30,9 +31,10 @@ dicom_dataset_t *dicom_part10_read_memory(const uint8_t *buffer, size_t length) 
             // Check TransferSyntaxUID from dataset if available
             dicom_element_t *ts_elem = dicom_dataset_get(ds, TAG_TRANSFER_SYNTAX_UID);
             if (ts_elem && ts_elem->data) {
-                if (strncmp((const char *)ts_elem->data, UID_IMPLICIT_VR_LITTLE_ENDIAN, 17) == 0) {
+                const char *ts_str = dicom_dataset_get_string(ds, TAG_TRANSFER_SYNTAX_UID);
+                if (ts_str && strcmp(ts_str, UID_IMPLICIT_VR_LITTLE_ENDIAN) == 0) {
                     is_explicit = false;
-                } else if (strncmp((const char *)ts_elem->data, UID_EXPLICIT_VR_BIG_ENDIAN, 19) == 0) {
+                } else if (ts_str && strcmp(ts_str, UID_EXPLICIT_VR_BIG_ENDIAN) == 0) {
                     is_big_endian = true;
                 }
             }

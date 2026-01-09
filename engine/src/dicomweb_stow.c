@@ -10,6 +10,7 @@ bool dicomweb_stow_ingest_multipart(
     const char *content_type_header,
     size_t *out_stored_count
 ) {
+    (void)content_type_header;
     if (!h || !body || body_len == 0 || !out_stored_count) return false;
     *out_stored_count = 0;
 

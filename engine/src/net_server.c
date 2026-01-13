@@ -164,6 +164,89 @@ static void handle_http_client(pacs_server_t *srv, int client_fd) {
         return;
     }
 
+    // DICOMweb QIDO-RS & WADO-RS nested endpoints
+    if (strncmp(path, "/studies/", 9) == 0) {
+        char study_uid[65] = {0};
+        char series_uid[65] = {0};
+        char instance_uid[65] = {0};
+
+        const char *p = path + 9;
+        const char *slash = strchr(p, '/');
+        if (slash) {
+            size_t len = (size_t)(slash - p);
+            if (len >= sizeof(study_uid)) len = sizeof(study_uid) - 1;
+            strncpy(study_uid, p, len);
+
+            if (strncmp(slash, "/series", 7) == 0) {
+                const char *p_ser = slash + 7;
+                if (*p_ser == '\0' || *p_ser == '?') {
+                    // /studies/{study_uid}/series
+                    char *json = dicomweb_qido_query_series(srv->hierarchy, study_uid, strchr(p_ser, '?'));
+                    if (json) {
+                        send_http_response(client_fd, 200, "application/dicom+json", (const uint8_t *)json, strlen(json));
+                        free(json);
+                    } else {
+                        send_http_response(client_fd, 404, "text/plain", (const uint8_t *)"Study Not Found", 15);
+                    }
+                    close(client_fd);
+                    return;
+                } else if (*p_ser == '/') {
+                    p_ser++; // skip '/'
+                    const char *slash2 = strchr(p_ser, '/');
+                    if (slash2) {
+                        size_t slen = (size_t)(slash2 - p_ser);
+                        if (slen >= sizeof(series_uid)) slen = sizeof(series_uid) - 1;
+                        strncpy(series_uid, p_ser, slen);
+
+                        if (strncmp(slash2, "/instances", 10) == 0) {
+                            const char *p_inst = slash2 + 10;
+                            if (*p_inst == '\0' || *p_inst == '?') {
+                                // /studies/{study_uid}/series/{series_uid}/instances
+                                char *json = dicomweb_qido_query_instances(srv->hierarchy, study_uid, series_uid, strchr(p_inst, '?'));
+                                if (json) {
+                                    send_http_response(client_fd, 200, "application/dicom+json", (const uint8_t *)json, strlen(json));
+                                    free(json);
+                                } else {
+                                    send_http_response(client_fd, 404, "text/plain", (const uint8_t *)"Series Not Found", 16);
+                                }
+                                close(client_fd);
+                                return;
+                            } else if (*p_inst == '/') {
+                                p_inst++; // skip '/'
+                                const char *slash3 = strchr(p_inst, '/');
+                                if (slash3) {
+                                    size_t ilen = (size_t)(slash3 - p_inst);
+                                    if (ilen >= sizeof(instance_uid)) ilen = sizeof(instance_uid) - 1;
+                                    strncpy(instance_uid, p_inst, ilen);
+
+                                    if (strncmp(slash3, "/rendered", 9) == 0) {
+                                        // /studies/{study_uid}/series/{series_uid}/instances/{instance_uid}/rendered
+                                        window_level_t wl = { .center = 40.0, .width = 350.0 };
+                                        char *wc_param = strstr(path, "wc=");
+                                        if (wc_param) wl.center = atof(wc_param + 3);
+                                        char *ww_param = strstr(path, "ww=");
+                                        if (ww_param) wl.width = atof(ww_param + 3);
+
+                                        size_t png_len = 0;
+                                        uint8_t *png = dicomweb_wado_render_instance_png(srv->hierarchy, study_uid, series_uid, instance_uid, wl, &png_len);
+                                        if (png) {
+                                            send_http_response(client_fd, 200, "image/png", png, png_len);
+                                            free(png);
+                                        } else {
+                                            send_http_response(client_fd, 404, "text/plain", (const uint8_t *)"Instance Not Found", 18);
+                                        }
+                                        close(client_fd);
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // MPR Slice Rendering: /mpr?plane=axial&slice=32&windowCenter=40&windowWidth=350
     if (strncmp(path, "/mpr", 4) == 0) {
         mpr_plane_t plane = MPR_PLANE_AXIAL;

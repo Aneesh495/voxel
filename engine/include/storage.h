@@ -61,6 +61,7 @@ typedef struct {
 // Storage API
 storage_hierarchy_t *storage_hierarchy_create(const char *base_dir);
 void storage_hierarchy_destroy(storage_hierarchy_t *h);
+bool storage_hierarchy_scan_directory(storage_hierarchy_t *h, const char *dir_path);
 
 bool storage_ingest_dataset(storage_hierarchy_t *h, const dicom_dataset_t *ds, const char *raw_file_path);
 storage_study_t *storage_find_study(const storage_hierarchy_t *h, const char *study_uid);

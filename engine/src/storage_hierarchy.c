@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -15,7 +16,31 @@ storage_hierarchy_t *storage_hierarchy_create(const char *base_dir) {
         return NULL;
     }
     strncpy(h->base_directory, base_dir ? base_dir : "data", 255);
+    storage_hierarchy_scan_directory(h, h->base_directory);
     return h;
+}
+
+bool storage_hierarchy_scan_directory(storage_hierarchy_t *h, const char *dir_path) {
+    if (!h || !dir_path) return false;
+    DIR *d = opendir(dir_path);
+    if (!d) return false;
+
+    struct dirent *dir;
+    char full_path[512];
+    while ((dir = readdir(d)) != NULL) {
+        if (dir->d_name[0] == '.') continue;
+        size_t nlen = strlen(dir->d_name);
+        if (nlen > 4 && strcmp(&dir->d_name[nlen - 4], ".dcm") == 0) {
+            snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, dir->d_name);
+            dicom_dataset_t *ds = dicom_part10_read_file(full_path);
+            if (ds) {
+                storage_ingest_dataset(h, ds, full_path);
+                dicom_dataset_destroy(ds);
+            }
+        }
+    }
+    closedir(d);
+    return true;
 }
 
 static void destroy_instance(storage_instance_t *inst) {

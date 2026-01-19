@@ -236,9 +236,28 @@ storage_instance_t *storage_find_instance(const storage_hierarchy_t *h, const ch
     return NULL;
 }
 
+static void mkdir_recursive(const char *dir) {
+    char tmp[256];
+    char *p = NULL;
+    size_t len;
+
+    snprintf(tmp, sizeof(tmp), "%s", dir);
+    len = strlen(tmp);
+    if (len == 0) return;
+    if (tmp[len - 1] == '/') tmp[len - 1] = 0;
+    for (p = tmp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = 0;
+            mkdir(tmp, 0755);
+            *p = '/';
+        }
+    }
+    mkdir(tmp, 0755);
+}
+
 bool storage_cas_store(const char *base_dir, const uint8_t *data, size_t len, char *out_path, size_t out_path_max) {
     if (!data || len == 0 || !out_path) return false;
-    mkdir(base_dir ? base_dir : "data", 0755);
+    mkdir_recursive(base_dir ? base_dir : "data");
 
     // Generate simple deterministic hash name
     uint32_t hash = 5381;

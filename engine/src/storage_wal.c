@@ -2,8 +2,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #define WAL_MAGIC 0x56585741u // 'VXWA'
+
+static void ensure_parent_dir(const char *filepath) {
+    char tmp[256];
+    snprintf(tmp, sizeof(tmp), "%s", filepath);
+    char *slash = strrchr(tmp, '/');
+    if (slash) {
+        *slash = '\0';
+        char *p = NULL;
+        for (p = tmp + 1; *p; p++) {
+            if (*p == '/') {
+                *p = '\0';
+                mkdir(tmp, 0755);
+                *p = '/';
+            }
+        }
+        mkdir(tmp, 0755);
+    }
+}
 
 static uint32_t calc_crc32(const uint8_t *data, size_t len) {
     uint32_t crc = 0xFFFFFFFFu;
@@ -29,6 +48,7 @@ bool storage_wal_append(
     size_t payload_len
 ) {
     if (!wal_path) return false;
+    ensure_parent_dir(wal_path);
     FILE *f = fopen(wal_path, "ab");
     if (!f) return false;
 

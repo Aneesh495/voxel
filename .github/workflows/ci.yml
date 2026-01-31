@@ -1,0 +1,50 @@
+name: Voxel CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build & Verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Display Toolchain Information
+        run: |
+          cc --version
+          python3 --version
+
+      - name: Build Voxel Production Binary
+        run: make -j4
+
+      - name: Run Unit Test Suite
+        run: make test-unit
+
+      - name: Run End-to-End Integration Suite
+        run: make test-integration
+
+      - name: Run Microbenchmark Suite
+        run: make bench
+
+      - name: Synthesize 3D Anatomical Phantom
+        run: make phantom
+
+      - name: Verify Clean Workspace
+        run: |
+          make clean
+          test ! -d bin

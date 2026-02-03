@@ -81,4 +81,4 @@ The project follows rigorous systems engineering principles:
 - Zero third-party runtime package dependencies for the core server and web viewer.
 - Explicit error handling through tagged unions.
 - Comprehensive unit, integration, and regression test suites.
-- Microbenchmarks quantifying throughput and latency under high concurrency.
+- Microbenchmarks measuring throughput and latency under high concurrency.

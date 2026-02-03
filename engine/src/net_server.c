@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include "net.h"
 #include "dicomweb.h"
 #include "dimse.h"
@@ -12,6 +13,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
+#include <time.h>
 
 static int setup_listen_socket(uint16_t port) {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -42,6 +44,27 @@ static int setup_listen_socket(uint16_t port) {
     return fd;
 }
 
+static bool write_all(int fd, const void *data, size_t len) {
+    const uint8_t *cursor = data;
+    while (len > 0) {
+#ifdef MSG_NOSIGNAL
+        ssize_t sent = send(fd, cursor, len, MSG_NOSIGNAL);
+#else
+        ssize_t sent = send(fd, cursor, len, 0);
+#endif
+        if (sent < 0 && errno == EINTR) continue;
+        if (sent <= 0) return false;
+        cursor += sent;
+        len -= (size_t)sent;
+    }
+    return true;
+}
+
+static void pause_after_accept_error(void) {
+    const struct timespec delay = { .tv_nsec = 10000000 };
+    nanosleep(&delay, NULL);
+}
+
 static void send_http_response(int fd, int status, const char *content_type, const uint8_t *body, size_t body_len) {
     char header[512];
     int hlen = snprintf(header, sizeof(header),
@@ -57,10 +80,27 @@ static void send_http_response(int fd, int status, const char *content_type, con
         content_type ? content_type : "text/plain",
         body_len);
 
-    write(fd, header, (size_t)hlen);
-    if (body && body_len > 0) {
-        write(fd, body, body_len);
-    }
+    if (hlen < 0 || (size_t)hlen >= sizeof(header)) return;
+    if (!write_all(fd, header, (size_t)hlen)) return;
+    if (body && body_len > 0) write_all(fd, body, body_len);
+}
+
+static bool send_web_file(int fd, const char *path, const char *type) {
+    FILE *file = fopen(path, "rb");
+    if (!file) return false;
+    uint8_t *body = NULL;
+    bool ok = false;
+    if (fseek(file, 0, SEEK_END) != 0) goto done;
+    long size = ftell(file);
+    if (size < 0 || fseek(file, 0, SEEK_SET) != 0) goto done;
+    body = malloc(size ? (size_t)size : 1);
+    if (!body || fread(body, 1, (size_t)size, file) != (size_t)size) goto done;
+    send_http_response(fd, 200, type, body, (size_t)size);
+    ok = true;
+done:
+    free(body);
+    fclose(file);
+    return ok;
 }
 
 static void handle_http_client(pacs_server_t *srv, int client_fd) {
@@ -87,19 +127,7 @@ static void handle_http_client(pacs_server_t *srv, int client_fd) {
     if (strcmp(path, "/") == 0 || strcmp(path, "/index.html") == 0) {
         char file_path[512];
         snprintf(file_path, sizeof(file_path), "%s/index.html", srv->config.web_root);
-        FILE *f = fopen(file_path, "rb");
-        if (f) {
-            fseek(f, 0, SEEK_END);
-            long sz = ftell(f);
-            fseek(f, 0, SEEK_SET);
-            uint8_t *b = (uint8_t *)malloc((size_t)sz);
-            if (b) {
-                fread(b, 1, (size_t)sz, f);
-                send_http_response(client_fd, 200, "text/html", b, (size_t)sz);
-                free(b);
-            }
-            fclose(f);
-        } else {
+        if (!send_web_file(client_fd, file_path, "text/html")) {
             const char *fallback = "<!DOCTYPE html><html><head><title>voxel PACS</title></head><body><h1>voxel PACS Server Active</h1></body></html>";
             send_http_response(client_fd, 200, "text/html", (const uint8_t *)fallback, strlen(fallback));
         }
@@ -110,19 +138,7 @@ static void handle_http_client(pacs_server_t *srv, int client_fd) {
     if (strcmp(path, "/styles.css") == 0) {
         char file_path[512];
         snprintf(file_path, sizeof(file_path), "%s/styles.css", srv->config.web_root);
-        FILE *f = fopen(file_path, "rb");
-        if (f) {
-            fseek(f, 0, SEEK_END);
-            long sz = ftell(f);
-            fseek(f, 0, SEEK_SET);
-            uint8_t *b = (uint8_t *)malloc((size_t)sz);
-            if (b) {
-                fread(b, 1, (size_t)sz, f);
-                send_http_response(client_fd, 200, "text/css", b, (size_t)sz);
-                free(b);
-            }
-            fclose(f);
-        } else {
+        if (!send_web_file(client_fd, file_path, "text/css")) {
             send_http_response(client_fd, 404, "text/plain", (const uint8_t *)"Not Found", 9);
         }
         close(client_fd);
@@ -132,19 +148,7 @@ static void handle_http_client(pacs_server_t *srv, int client_fd) {
     if (strcmp(path, "/app.js") == 0) {
         char file_path[512];
         snprintf(file_path, sizeof(file_path), "%s/app.js", srv->config.web_root);
-        FILE *f = fopen(file_path, "rb");
-        if (f) {
-            fseek(f, 0, SEEK_END);
-            long sz = ftell(f);
-            fseek(f, 0, SEEK_SET);
-            uint8_t *b = (uint8_t *)malloc((size_t)sz);
-            if (b) {
-                fread(b, 1, (size_t)sz, f);
-                send_http_response(client_fd, 200, "application/javascript", b, (size_t)sz);
-                free(b);
-            }
-            fclose(f);
-        } else {
+        if (!send_web_file(client_fd, file_path, "application/javascript")) {
             send_http_response(client_fd, 404, "text/plain", (const uint8_t *)"Not Found", 9);
         }
         close(client_fd);
@@ -296,7 +300,7 @@ static void *http_thread_entry(void *arg) {
             handle_http_client(srv, client_fd);
         } else {
             if (!srv->is_running) break;
-            usleep(10000);
+            pause_after_accept_error();
         }
     }
     return NULL;
@@ -320,7 +324,7 @@ static void handle_dicom_client(pacs_server_t *srv, int client_fd) {
             uint8_t ac_buf[2048];
             size_t ac_len = 0;
             if (dimse_process_associate_rq(assoc, rx_buf, (size_t)n, ac_buf, &ac_len)) {
-                write(client_fd, ac_buf, ac_len);
+                if (!write_all(client_fd, ac_buf, ac_len)) break;
             } else {
                 break;
             }
@@ -352,11 +356,11 @@ static void handle_dicom_client(pacs_server_t *srv, int client_fd) {
             pdu_out[11] = 0x03; // Command + Last fragment
             memcpy(pdu_out + 12, rsp_cmd, rsp_len);
 
-            write(client_fd, pdu_out, (size_t)(12 + rsp_len));
+            if (!write_all(client_fd, pdu_out, 12 + rsp_len)) break;
         } else if (pdu_type == PDU_A_RELEASE_RQ) {
             // Respond with A-RELEASE-RP (fixed 10 bytes)
             uint8_t rp[10] = { PDU_A_RELEASE_RP, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00 };
-            write(client_fd, rp, 10);
+            write_all(client_fd, rp, sizeof(rp));
             break;
         } else if (pdu_type == PDU_A_ABORT) {
             break;
@@ -377,7 +381,7 @@ static void *dicom_thread_entry(void *arg) {
             handle_dicom_client(srv, client_fd);
         } else {
             if (!srv->is_running) break;
-            usleep(10000);
+            pause_after_accept_error();
         }
     }
     return NULL;

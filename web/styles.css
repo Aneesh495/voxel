@@ -319,3 +319,5 @@ canvas {
   .viewport-card { min-height: 280px; }
   .viewport-card canvas { max-width: 100%; }
 }
+
+html:not([data-mode="synthetic"]) .preview-context { display: none; }

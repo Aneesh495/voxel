@@ -40,8 +40,8 @@ bool dimse_process_associate_rq(
     for (int i = 15; i >= 0 && called[i] == ' '; i--) called[i] = '\0';
     for (int i = 15; i >= 0 && calling[i] == ' '; i--) calling[i] = '\0';
 
-    strncpy(assoc->called_ae, called, 16);
-    strncpy(assoc->calling_ae, calling, 16);
+    memcpy(assoc->called_ae, called, sizeof(called));
+    memcpy(assoc->calling_ae, calling, sizeof(calling));
 
     // Parse presentation context items starting at offset 74
     size_t cursor = 74;
@@ -72,7 +72,7 @@ bool dimse_process_associate_rq(
 
             dimse_pres_context_t *ctx = &assoc->contexts[assoc->context_count++];
             ctx->id = ctx_id;
-            strncpy(ctx->abstract_syntax, abstract_syntax, 63);
+            memcpy(ctx->abstract_syntax, abstract_syntax, sizeof(abstract_syntax));
             strncpy(ctx->transfer_syntax, UID_EXPLICIT_VR_LITTLE_ENDIAN, 63);
             ctx->is_accepted = true; // Accept standard medical SOP classes
         }

@@ -66,6 +66,8 @@
         if (elWw) elWw.textContent = Math.round(state.windowWidth);
     }
 
+    const demoOnly = document.documentElement.dataset.mode === "synthetic";
+    const renderGeneration = {};
     // Renders a viewport using either live server endpoint or client synthetic CT generator
     function renderViewport(plane) {
         const canvas = canvases[plane];
@@ -78,18 +80,27 @@
         }
 
         const sliceIdx = state.slices[plane];
+        const fallback = () => {
+            renderClientSyntheticSlice(ctx, plane, sliceIdx, canvas.width, canvas.height);
+            drawOverlays(ctx, plane);
+        };
+        if (demoOnly) {
+            fallback();
+            return;
+        }
+        const generation = (renderGeneration[plane] || 0) + 1;
+        renderGeneration[plane] = generation;
         const url = `/mpr?plane=${plane}&slice=${sliceIdx}&windowCenter=${state.windowCenter}&windowWidth=${state.windowWidth}`;
 
         const img = new Image();
         img.onload = function () {
+            if (renderGeneration[plane] !== generation) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             drawOverlays(ctx, plane);
         };
         img.onerror = function () {
-            // Offline fallback: draw client-side anatomical slice
-            renderClientSyntheticSlice(ctx, plane, sliceIdx, canvas.width, canvas.height);
-            drawOverlays(ctx, plane);
+            if (renderGeneration[plane] === generation) fallback();
         };
         img.src = url;
     }

@@ -300,3 +300,22 @@ canvas {
     border-bottom: 1px solid var(--border-color);
     font-family: var(--font-mono);
 }
+
+.preview-context {
+  margin: 0;
+  padding: .6rem 1rem;
+  background: #121b27;
+  color: #d6e2ed;
+  font: 400 .85rem/1.45 system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+.preview-context a { color: #9bdeff; }
+:focus-visible { outline: 3px solid #9bdeff; outline-offset: 2px; }
+
+@media (max-width: 760px) {
+  body { height: auto; min-height: 100vh; overflow: auto; }
+  .top-nav, .toolbar, .tool-group, .tool-buttons { flex-wrap: wrap; gap: .5rem; }
+  .workstation-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  .viewport-card { min-height: 280px; }
+  .viewport-card canvas { max-width: 100%; }
+}

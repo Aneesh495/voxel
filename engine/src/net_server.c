@@ -179,7 +179,7 @@ static void handle_http_client(pacs_server_t *srv, int client_fd) {
         if (slash) {
             size_t len = (size_t)(slash - p);
             if (len >= sizeof(study_uid)) len = sizeof(study_uid) - 1;
-            strncpy(study_uid, p, len);
+            memcpy(study_uid, p, len);
 
             if (strncmp(slash, "/series", 7) == 0) {
                 const char *p_ser = slash + 7;
@@ -200,7 +200,7 @@ static void handle_http_client(pacs_server_t *srv, int client_fd) {
                     if (slash2) {
                         size_t slen = (size_t)(slash2 - p_ser);
                         if (slen >= sizeof(series_uid)) slen = sizeof(series_uid) - 1;
-                        strncpy(series_uid, p_ser, slen);
+                        memcpy(series_uid, p_ser, slen);
 
                         if (strncmp(slash2, "/instances", 10) == 0) {
                             const char *p_inst = slash2 + 10;
@@ -221,7 +221,7 @@ static void handle_http_client(pacs_server_t *srv, int client_fd) {
                                 if (slash3) {
                                     size_t ilen = (size_t)(slash3 - p_inst);
                                     if (ilen >= sizeof(instance_uid)) ilen = sizeof(instance_uid) - 1;
-                                    strncpy(instance_uid, p_inst, ilen);
+                                    memcpy(instance_uid, p_inst, ilen);
 
                                     if (strncmp(slash3, "/rendered", 9) == 0) {
                                         // /studies/{study_uid}/series/{series_uid}/instances/{instance_uid}/rendered

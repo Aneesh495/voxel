@@ -28,7 +28,7 @@ jobs:
           mkdir -p _site
           cp -a web/. _site/
           sed -i 's/<html lang="en">/<html lang="en" data-mode="synthetic">/' _site/index.html
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
       - name: Deploy
